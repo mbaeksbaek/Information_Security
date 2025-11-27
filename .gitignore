@@ -1,0 +1,23 @@
+ 빌드 디렉토리
+/build/
+ /bin/
+ /obj/
+
+# 컴파일 산출물
+*.o
+*.out
+*.exe
+*.obj
+
+# 코드 커버리지 / gcov 파일
+*.gcda
+*.gcno
+*.gcov
+
+# 로그 / 임시 파일
+*.log
+*.tmp
+
+# macOS
+.DS_Store
+
