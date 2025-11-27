@@ -1,0 +1,5 @@
+        -:    0:Source:src/aes/aes_key_schedule.c
+        -:    0:Graph:test_all_cov-aes_key_schedule.gcno
+        -:    0:Data:test_all_cov-aes_key_schedule.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1

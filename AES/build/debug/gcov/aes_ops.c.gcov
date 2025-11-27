@@ -1,0 +1,5 @@
+        -:    0:Source:src/aes/aes_ops.c
+        -:    0:Graph:test_all_cov-aes_ops.gcno
+        -:    0:Data:test_all_cov-aes_ops.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
