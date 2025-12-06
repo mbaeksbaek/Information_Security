@@ -1,4 +1,4 @@
-#include "big_int.h"
+#include "bigint/bigint.h"
 #include <stdio.h>
 
 static void bi_normalize(BigInt* a) {
@@ -180,4 +180,219 @@ void bi_print_hex(const BigInt *a) {
             printf("%016lx", a->limb[i]);     // 그 다음부터는 항상 16자리
     }
     printf("\n");
+}
+
+// ===== 내부 헬퍼: 비트 관련 함수들 =====
+
+static size_t bi_bit_length(const BigInt* a) {
+    if (a->nlimbs == 0) return 0;
+
+    size_t hi = a->nlimbs - 1;
+    uint64_t v = a->limb[hi];
+    // v != 0 이라고 가정 (normalize 된 상태)
+    unsigned bits = 0;
+    while (v) {
+        bits++;
+        v >>= 1;
+    }
+    return hi * BI_WORD_BITS + bits;
+}
+
+static int bi_get_bit(const BigInt* a, size_t idx) {
+    size_t word = idx / BI_WORD_BITS;
+    unsigned bit = (unsigned)(idx % BI_WORD_BITS);
+    if (word >= a->nlimbs) return 0;
+    return (int)((a->limb[word] >> bit) & 1u);
+}
+
+static void bi_set_bit(BigInt* a, size_t idx) {
+    size_t word = idx / BI_WORD_BITS;
+    unsigned bit = (unsigned)(idx % BI_WORD_BITS);
+    if (word >= BI_MAX_WORDS) {
+        // 상위 비트는 잘라버림 (과제용)
+        return;
+    }
+    if (a->nlimbs <= word) {
+        // 중간 비트까지 0으로 채워줌
+        for (size_t i = a->nlimbs; i <= word; i++) {
+            a->limb[i] = 0;
+        }
+        a->nlimbs = word + 1;
+    }
+    a->limb[word] |= ((uint64_t)1u << bit);
+}
+
+// ===== Big-Endian 바이트 <-> BigInt =====
+
+void bi_from_be_bytes(BigInt* r, const uint8_t* buf, size_t len) {
+    bi_zero(r);
+    if (!buf || len == 0) return;
+
+    // leading zero 스킵
+    size_t start = 0;
+    while (start < len && buf[start] == 0) {
+        start++;
+    }
+    if (start == len) {
+        // 모두 0
+        return;
+    }
+
+    size_t out_idx = 0;
+    size_t i = len;
+
+    // 뒤에서부터 8바이트씩 잘라서 limb 하나씩 채움 (little-endian limb)
+    while (i > start && out_idx < BI_MAX_WORDS) {
+        uint64_t limb = 0;
+        unsigned shift = 0;
+        // limb 하나 만들기
+        for (unsigned b = 0; b < 8 && i > start; b++) {
+            i--;
+            limb |= ((uint64_t)buf[i]) << shift;
+            shift += 8;
+        }
+        r->limb[out_idx++] = limb;
+    }
+    r->nlimbs = out_idx;
+    bi_normalize(r);
+}
+
+size_t bi_to_be_bytes(const BigInt* a, uint8_t* out, size_t max_len) {
+    if (a->nlimbs == 0) {
+        // 0은 길이 0 으로 반환 (RSA 관점에서는 modulus 0은 말이 안 되지만,
+        // 여기서는 "필요 없음"으로 처리)
+        return 0;
+    }
+
+    size_t hi = a->nlimbs - 1;
+    uint64_t v = a->limb[hi];
+
+    // 최상위 limb에 실제로 필요한 바이트 수
+    unsigned hi_bytes = 0;
+    while (v) {
+        hi_bytes++;
+        v >>= 8;
+    }
+    if (hi_bytes == 0) hi_bytes = 1; // 이론상 안 들어오긴 함
+
+    size_t needed = hi * 8 + hi_bytes;
+    if (!out) {
+        // 버퍼만 계산하고 싶을 때
+        return needed;
+    }
+    if (max_len < needed) {
+        // 버퍼가 부족 -> 아무것도 안 씀, 0 리턴
+        return 0;
+    }
+
+    size_t pos = needed;
+    for (size_t i = 0; i < a->nlimbs; i++) {
+        uint64_t limb = a->limb[i];
+        for (unsigned b = 0; b < 8 && pos > 0; b++) {
+            out[--pos] = (uint8_t)(limb & 0xFFu);
+            limb >>= 8;
+        }
+    }
+    // pos == 0 이 되어야 정상
+    return needed;
+}
+
+// ===== 나눗셈 / 모듈러 =====
+
+void bi_div_mod(BigInt* q, BigInt* r,
+                const BigInt* a, const BigInt* m) {
+    bi_zero(q);
+    bi_zero(r);
+
+    if (bi_is_zero(m)) {
+        // 0으로 나누기: 여기서는 q=r=0 그대로 두고 리턴
+        // 필요하면 assert 추가 가능
+        return;
+    }
+    if (bi_is_zero(a)) {
+        return; // 0 / m = 0 ... 0
+    }
+
+    size_t nbits = bi_bit_length(a);
+    // 복원 나눗셈 알고리즘: bit 단위
+    for (size_t i = nbits; i > 0; i--) {
+        size_t bit = i - 1;
+
+        // r <<= 1
+        BigInt tmp;
+        bi_shl_bits(&tmp, r, 1);
+        *r = tmp;
+
+        // r += a의 bit
+        if (bi_get_bit(a, bit)) {
+            if (r->nlimbs == 0) {
+                r->limb[0] = 1;
+                r->nlimbs = 1;
+            } else {
+                r->limb[0] |= 1u;
+            }
+        }
+
+        // if r >= m: r -= m, q의 해당 bit = 1
+        if (bi_cmp(r, m) >= 0) {
+            BigInt tmp2;
+            bi_sub(&tmp2, r, m);
+            *r = tmp2;
+            bi_set_bit(q, bit);
+        }
+    }
+
+    bi_normalize(q);
+    bi_normalize(r);
+}
+
+void bi_mod(BigInt* r, const BigInt* a, const BigInt* m) {
+    BigInt q;
+    bi_div_mod(&q, r, a, m);
+}
+
+// ===== 모듈러 곱 =====
+
+void bi_modmul(BigInt* r, const BigInt* a, const BigInt* b, const BigInt* m) {
+    BigInt tmp;
+    bi_mul(&tmp, a, b);      // O(N^2) 곱셈
+    bi_mod(r, &tmp, m);      // 나머지만 취함
+}
+
+// ===== 모듈러 거듭제곱: square-and-multiply =====
+
+void bi_modexp(BigInt* r,
+               const BigInt* base,
+               const BigInt* exp,
+               const BigInt* mod) {
+    BigInt res;
+    BigInt base_acc;
+
+    if (bi_is_zero(mod)) {
+        // mod 0은 의미 없음 -> 0으로 리턴
+        bi_zero(r);
+        return;
+    }
+
+    // res = 1
+    bi_from_u64(&res, 1u);
+
+    // base_acc = base mod mod
+    bi_mod(&base_acc, base, mod);
+
+    size_t e_bits = bi_bit_length(exp);
+    for (size_t i = 0; i < e_bits; i++) {
+        if (bi_get_bit(exp, i)) {
+            BigInt tmp;
+            bi_modmul(&tmp, &res, &base_acc, mod);
+            res = tmp;
+        }
+        // base_acc = base_acc^2 mod mod
+        BigInt tmp2;
+        bi_modmul(&tmp2, &base_acc, &base_acc, mod);
+        base_acc = tmp2;
+    }
+
+    *r = res;
+    bi_normalize(r);
 }
