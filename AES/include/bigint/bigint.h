@@ -9,8 +9,8 @@
 #include <stddef.h>
 
 #define BI_WORD_BITS 64
-#define BI_MAX_BITS 2048
-#define BI_MAX_WORDS (BI_MAX_BITS / BI_WORD_BITS)
+#define BI_MAX_BITS 4096 // 2048 > 4096
+#define BI_MAX_WORDS 64 //(BI_MAX_BITS / BI_WORD_BITS)
 
 typedef struct {
     uint64_t limb[BI_MAX_WORDS];    // little endian: limb 0 = least significant

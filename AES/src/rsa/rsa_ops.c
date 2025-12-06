@@ -116,6 +116,7 @@ static int rsa_process_block(const RSAKS *ks,
     bi_zero(&in_bi);
     bi_zero(&out_bi);
 
+    if (bi_cmp(&in_bi, &ks->n) >= 0) return -1;
     // big-endian 바이트 -> BigInt
     bi_from_be_bytes(&in_bi, in_bytes, in_len);
 
