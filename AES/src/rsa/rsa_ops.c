@@ -7,7 +7,7 @@
 #include "bigint/bigint.h"     // BigInt, bi_* APIs
 #include <stdlib.h>
 #include <string.h>
-
+#include <stdio.h> // stderr
 // [주의]
 // 여기서는 RSA Core 를 간단히 래핑하는 KS 구조체만 둔다.
 // RSA Core 쪽에서 BigInt 기반 모듈러 지수 계산이 준비되어 있으므로
@@ -116,9 +116,11 @@ static int rsa_process_block(const RSAKS *ks,
     bi_zero(&in_bi);
     bi_zero(&out_bi);
 
-    if (bi_cmp(&in_bi, &ks->n) >= 0) return -1;
     // big-endian 바이트 -> BigInt
     bi_from_be_bytes(&in_bi, in_bytes, in_len);
+
+    // m < n 조건 보장 (잘못된 입력이면 실패)
+    if (bi_cmp(&in_bi, &ks->n) >= 0) return -1;
 
     // out_bi = in_bi^exp mod n
     bi_modexp(&out_bi, &in_bi, &ks->exp, &ks->n);
@@ -128,6 +130,10 @@ static int rsa_process_block(const RSAKS *ks,
     size_t needed = bi_to_be_bytes(&out_bi, NULL, 0);
     if (needed > out_len) {
         // modulus / block size 설정 이상
+        // debugging test 
+        fprintf(stderr,
+        "[DBG][rsa-process-block] needed %zu, out len %zu (k bytes=%zu, pt_blk=%zu)\n",
+        needed, out_len, ks->k_bytes, ks->pt_block_bytes);
         return -1;
     }
 
@@ -300,7 +306,6 @@ static int rsa_decrypt_ecb_strip(const void *ks_mem,
 
     for (size_t b = 0; b < num_blocks; ++b) {
         memcpy(ct_block, in + offset_in, ct_blk);
-
         // RSA 한 블록 처리
         if (rsa_process_block(ks,
                               ct_block, ct_blk,

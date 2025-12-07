@@ -172,6 +172,32 @@ FHStatus runner_exec_line(const RunnerConfig* cfg) {
         fh_close(&in); return st;
     }
 
+    /* RAW + decrypt: ciphertext는 바이너리라 개행을 데이터로 오해할 수 있다.
+       line reader를 쓰지 말고 파일 전체를 읽은 뒤, 마지막 개행(\r?\n)만
+       구분자로 간주해 제거한 후 복호한다. */
+    if (!cfg->is_encrypt && !cfg->use_hex) {
+        uint8_t *filebuf = NULL; size_t filelen = 0;
+        st = read_all(in, &filebuf, &filelen);
+        if (st.code != FH_OK) { fh_close(&in); fh_close(&out); return st; }
+
+        // trailing newline 제거 (enc 단계에서 line 구분용으로 넣은 개행)
+        size_t eff = filelen;
+        if (eff > 0 && filebuf[eff - 1] == '\n') eff--;
+        if (eff > 0 && filebuf[eff - 1] == '\r') eff--;
+
+        uint8_t *crypto_out = NULL; size_t crypto_len = 0;
+        st = run_bytes_with_ops(cfg, filebuf, eff, &crypto_out, &crypto_len);
+        free(filebuf);
+        if (st.code != FH_OK) { fh_close(&in); fh_close(&out); return st; }
+
+        st = (crypto_len > 0) ? fh_write_all(out, crypto_out, crypto_len) : fh_status_ok();
+        if (st.code == FH_OK) st = fh_write_all(out, "\n", 1);
+        fh_secure_zero(crypto_out, crypto_len);
+        free(crypto_out);
+        fh_close(&in); fh_close(&out);
+        return st;
+    }
+
     LineReader lr;
     st = lr_init(&lr, in, 0);
     if (st.code != FH_OK) {

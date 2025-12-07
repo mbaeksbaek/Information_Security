@@ -1,5 +1,4 @@
 // src/rsa/rsa_app.c
-// RSA_백승민_2020253045
 // RSA-ECB + ZeroPadding CLI (Runner + CryptoOps 기반)
 
 #include "rsa/rsa_app.h"
@@ -8,61 +7,70 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "rsa/rsa_ops.h"
-#include "crypto_ops.h"
-#include "runner.h"
-#include "file_io.h"
-#include "codec_hex.h"
+#include "rsa/rsa_ops.h"   // extern const CryptoOps RSA_OPS;
 
-// 간단한 usage 출력
-static void rsa_print_usage(const char *prog) {
-    fprintf(stderr,
+static void print_usage(FILE *fp) {
+    fprintf(fp,
         "Usage:\n"
-        "  %s enc line  <in> <out> <key_hex> <hex|raw>\n"
-        "  %s enc whole <in> <out> <key_hex> <hex|raw>\n"
-        "  %s dec line  <in> <out> <key_hex> <hex|raw>\n"
-        "  %s dec whole <in> <out> <key_hex> <hex|raw>\n",
-        prog, prog, prog, prog);
-    fprintf(stderr,
-        "\n key_hex format: [N | EXP] in big-endian hex bytes\n"
-        "   enc: EXP = e, dec: EXP = d\n");
+        "  rsa_app enc line  <in> <out> <KEYHEX> [hex|raw]\n"
+        "  rsa_app enc whole <in> <out> <KEYHEX> [hex|raw]\n"
+        "  rsa_app dec line  <in> <out> <KEYHEX> [hex|raw]\n"
+        "  rsa_app dec whole <in> <out> <KEYHEX> [hex|raw]\n"
+        "\n"
+        "  KEYHEX : big-endian hex of N||EXP (enc: EXP=e, dec: EXP=d)\n"
+        "  [hex|raw] : plaintext/ciphertext file format\n"
+    );
 }
 
-// HEX 문자열을 바이트 배열로 디코딩하는 헬퍼
-// 성공: out_buf 할당 + out_len 설정, 0 리턴
-// 실패: -1 리턴
-static int decode_key_hex(const char *hex_str, uint8_t **out_buf, size_t *out_len) {
-    size_t len = strlen(hex_str);
-    if (len == 0 || (len & 1u) != 0) {
-        return -1; // empty or odd length
+// 간단한 KEYHEX 파서: HEX 문자열 → 바이트 배열
+static int parse_key_hex(const char *key_hex,
+                         uint8_t **out_key,
+                         size_t *out_key_len)
+{
+    if (!key_hex || !out_key || !out_key_len) {
+        return -1;
     }
 
-    uint8_t *buf = (uint8_t *)malloc(len / 2 ? len / 2 : 1);
-    if (!buf) return -1;
+    size_t hex_len = strlen(key_hex);
+    if (hex_len == 0 || (hex_len & 1u) != 0) {
+        fprintf(stderr, "[RSA-CLI] key_hex length must be even and > 0\n");
+        return -1;
+    }
 
-    long bl = hex_decode_line((const uint8_t *)hex_str, len, buf);
-    if (bl < 0) {
+    size_t key_bytes = hex_len / 2;
+    uint8_t *buf = (uint8_t *)malloc(key_bytes);
+    if (!buf) {
+        fprintf(stderr, "[RSA-CLI] OOM while allocating key buffer\n");
+        return -1;
+    }
+
+    long dec_len = hex_decode_line((const uint8_t *)key_hex,
+                                   hex_len,
+                                   buf);
+    if (dec_len <= 0) {
+        fprintf(stderr, "[RSA-CLI] key_hex must be valid hexadecimal string\n");
         free(buf);
         return -1;
     }
 
-    *out_buf = buf;
-    *out_len = (size_t)bl;
+    *out_key = buf;
+    *out_key_len = (size_t)dec_len;
     return 0;
 }
 
 int rsa_cli_run(int argc, char **argv) {
     if (argc != 7) {
-        rsa_print_usage(argv[0]);
+        fprintf(stderr, "[RSA-CLI] invalid number of arguments\n");
+        print_usage(stderr);
         return 1;
     }
 
-    const char *mode_str  = argv[1]; // "enc" or "dec"
-    const char *unit_str  = argv[2]; // "line" or "whole"
+    const char *mode_str = argv[1];  // "enc" / "dec"
+    const char *ptmode_str = argv[2]; // "line" / "whole"
     const char *in_path   = argv[3];
     const char *out_path  = argv[4];
     const char *key_hex   = argv[5];
-    const char *fmt_str   = argv[6]; // "hex" or "raw"
+    const char *fmt_str   = argv[6]; // "hex" / "raw"
 
     int is_encrypt = 0;
     int use_line_mode = 0;
@@ -74,61 +82,60 @@ int rsa_cli_run(int argc, char **argv) {
     } else if (strcmp(mode_str, "dec") == 0) {
         is_encrypt = 0;
     } else {
-        fprintf(stderr, "[RSA-CLI] invalid mode: %s\n", mode_str);
-        rsa_print_usage(argv[0]);
+        fprintf(stderr, "[RSA-CLI] invalid mode: %s (use enc|dec)\n", mode_str);
+        print_usage(stderr);
         return 1;
     }
 
     // line/whole 판단
-    if (strcmp(unit_str, "line") == 0) {
+    if (strcmp(ptmode_str, "line") == 0) {
         use_line_mode = 1;
-    } else if (strcmp(unit_str, "whole") == 0) {
+    } else if (strcmp(ptmode_str, "whole") == 0) {
         use_line_mode = 0;
     } else {
-        fprintf(stderr, "[RSA-CLI] invalid unit: %s\n", unit_str);
-        rsa_print_usage(argv[0]);
+        fprintf(stderr, "[RSA-CLI] invalid ptmode: %s (use line|whole)\n", ptmode_str);
+        print_usage(stderr);
         return 1;
     }
 
-    // hex/raw 판단 → runner.c의 cfg->use_hex 와 연결
+    // hex/raw 판단
     if (strcmp(fmt_str, "hex") == 0) {
         use_hex = 1;
     } else if (strcmp(fmt_str, "raw") == 0) {
         use_hex = 0;
     } else {
-        fprintf(stderr, "[RSA-CLI] invalid format: %s (use hex or raw)\n", fmt_str);
-        rsa_print_usage(argv[0]);
+        fprintf(stderr, "[RSA-CLI] invalid format: %s (use hex|raw)\n", fmt_str);
+        print_usage(stderr);
         return 1;
     }
 
-    // key_hex -> 바이트 배열
+    // KEYHEX → key bytes 파싱 (형식적 검증은 CLI에서 담당)
     uint8_t *key_bytes = NULL;
-    size_t key_len = 0;
-    if (decode_key_hex(key_hex, &key_bytes, &key_len) != 0) {
-        fprintf(stderr, "[RSA-CLI] invalid key_hex (decode failed)\n");
+    size_t   key_len   = 0;
+    if (parse_key_hex(key_hex, &key_bytes, &key_len) != 0) {
+        // parse_key_hex 가 이미 에러 메시지 출력
+        print_usage(stderr);
         return 1;
     }
 
-    // RunnerConfig 설정
+    // RunnerConfig 설정 (Runner는 CryptoOps만 알고, 내부 RSA는 모름)
     RunnerConfig cfg;
-    memset(&cfg, 0, sizeof(cfg));
-
-    cfg.ops         = &RSA_OPS;   // 🔥 여기서 AES가 아니라 RSA를 사용
+    cfg.ops         = &RSA_OPS;     // RSA용 CryptoOps 어댑터
     cfg.key         = key_bytes;
     cfg.key_len     = key_len;
     cfg.input_path  = in_path;
     cfg.output_path = out_path;
-    cfg.is_encrypt  = is_encrypt;
     cfg.use_hex     = use_hex;
+    cfg.is_encrypt  = is_encrypt ? true : false;
 
-    // 실제 실행
     FHStatus st;
-    if (use_line_mode)
+    if (use_line_mode) {
         st = runner_exec_line(&cfg);
-    else
+    } else {
         st = runner_exec_whole(&cfg);
+    }
 
-    // key 버퍼는 RunnerConfig에서 참조만 하므로 여기서 free
+    // key buffer 정리
     fh_secure_zero(key_bytes, key_len);
     free(key_bytes);
 

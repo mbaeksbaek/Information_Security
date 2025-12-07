@@ -2,7 +2,6 @@
 #include "rsa/rsa_app.h"
 
 /*
-
 gcc -Wall -Wextra -O2 \
   -Iinclude \
   src/main_rsa.c \

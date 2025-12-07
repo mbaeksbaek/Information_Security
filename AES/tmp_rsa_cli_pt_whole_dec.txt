@@ -1,0 +1,2 @@
+RSA WHOLE test.
+This is a slightly longer text to test whole-file processing.
