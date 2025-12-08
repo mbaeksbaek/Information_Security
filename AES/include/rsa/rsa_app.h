@@ -1,6 +1,6 @@
 // include/rsa/rsa_app.h
 /*
-[12.07] App Exception Handling Added
+- [12.07] App Exception Handling Added
 */
 #ifndef __RSA_APP_H__
 #define __RSA_APP_H__

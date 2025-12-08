@@ -8,22 +8,22 @@
 #include "rsa/rsa_core.h"
 
 /*
-gcc -Wall -Wextra -O2 \
-  -Iinclude \
-  src/bigint/bigint.c \
-  src/rsa/rsa_core.c \
-  tests/unit/test_rsa_core.c \
-  -o build/unit/test_rsa_core
-
-1. 교재예제키 Round trip
-2. 같은 키 평문 0 블록 암복호
-3. m >= n 평문 블록 암호화시 에러
-4. rsa_decrypt_block block length 불일치 에러
-5. rsa_ctx_init null 인자 처리 및 zero initialization
-6. rsa_encrypt_block 출력버퍼가 너무 잦은 경우, 즉, out_len < modulus_bytes 에러
+- gcc -Wall -Wextra -O2 \
+-   -Iinclude \
+-   src/bigint/bigint.c \
+-   src/rsa/rsa_core.c \
+-   tests/unit/test_rsa_core.c \
+-   -o build/unit/test_rsa_core
+-
+- 1. 교재예제키 Round trip
+- 2. 같은 키 평문 0 블록 암복호
+- 3. m >= n 평문 블록 암호화시 에러
+- 4. rsa_decrypt_block block length 불일치 에러
+- 5. rsa_ctx_init null 인자 처리 및 zero initialization
+- 6. rsa_encrypt_block 출력버퍼가 너무 작을 때 에러
 */
 
-/* 공통으로 쓰는 작은 RSA 키 (p=61, q=53) */
+/* - 공통으로 쓰는 작은 RSA 키 (p=61, q=53) */
 static void make_sample_key(BigInt *n, BigInt *e, BigInt *d) {
     /* p = 61, q = 53
      * n   = 3233
@@ -36,9 +36,8 @@ static void make_sample_key(BigInt *n, BigInt *e, BigInt *d) {
     bi_from_u64(d, 2753u);
 }
 
-/* [TC1] 기본 교재 예제: 65 ("A") 한 블록 encrypt/decrypt round-trip */
-static void test_rsa_small_sample(void)
-{
+/* - [TC1] 기본 교재 예제: 65 ("A") 한 블록 encrypt/decrypt round-trip */
+static void test_rsa_small_sample(void) {
     BigInt n, e, d;
     make_sample_key(&n, &e, &d);
 
@@ -74,9 +73,8 @@ static void test_rsa_small_sample(void)
     assert(m2[1] == m[1]);
 }
 
-/* [TC2] 평문이 0 (0x0000) 인 블록도 정상적으로 왕복 되는지 확인 */
-static void test_rsa_zero_plain_block(void)
-{
+/* - [TC2] 평문 0 블록 왕복 확인 */
+static void test_rsa_zero_plain_block(void) {
     BigInt n, e, d;
     make_sample_key(&n, &e, &d);
 
@@ -101,9 +99,8 @@ static void test_rsa_zero_plain_block(void)
     assert(m2[1] == 0x00);
 }
 
-/* [TC3] 평문 m >= n 인 경우 (RSA 전제 위반) → rsa_core_pow 가 -1 리턴하는지 */
-static void test_rsa_m_ge_n_fail(void)
-{
+/* - [TC3] 평문 m >= n이면 실패하는지 확인 */
+static void test_rsa_m_ge_n_fail(void) {
     BigInt n, e, d;
     make_sample_key(&n, &e, &d);
 
@@ -121,9 +118,8 @@ static void test_rsa_m_ge_n_fail(void)
     assert(ret != 0);
 }
 
-/* [TC4] rsa_decrypt_block: in_len != modulus_bytes 인 경우 에러 리턴 */
-static void test_rsa_decrypt_block_size_mismatch(void)
-{
+/* - [TC4] rsa_decrypt_block 길이 불일치 에러 */
+static void test_rsa_decrypt_block_size_mismatch(void) {
     BigInt n, e, d;
     make_sample_key(&n, &e, &d);
 
@@ -149,9 +145,8 @@ static void test_rsa_decrypt_block_size_mismatch(void)
     assert(ret != 0);
 }
 
-/* [TC5] rsa_ctx_init: NULL 인자 처리 + zero-initialization 동작 확인 */
-static void test_rsa_ctx_init_null_params(void)
-{
+/* - [TC5] rsa_ctx_init NULL 인자 처리/zero 상태 확인 */
+static void test_rsa_ctx_init_null_params(void) {
     BigInt n, e, d;
     make_sample_key(&n, &e, &d);
 
@@ -176,9 +171,8 @@ static void test_rsa_ctx_init_null_params(void)
     assert(bi_is_zero(&ctx.exp));
 }
 
-/* [TC6] out_len < modulus_bytes 인 경우 rsa_encrypt_block 이 실패하는지 */
-static void test_rsa_out_buffer_too_small(void)
-{
+/* - [TC6] out_len < modulus_bytes 인 경우 실패 확인 */
+static void test_rsa_out_buffer_too_small(void) {
     BigInt n, e, d;
     make_sample_key(&n, &e, &d);
 
@@ -196,8 +190,8 @@ static void test_rsa_out_buffer_too_small(void)
     assert(ret != 0);
 }
 
-int main(void)
-{
+/* - 엔트리포인트: rsa_core 확장 테스트 */
+int main(void) {
     test_rsa_small_sample();
     test_rsa_zero_plain_block();
     test_rsa_m_ge_n_fail();

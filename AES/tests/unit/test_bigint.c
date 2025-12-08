@@ -4,13 +4,14 @@
 #include <assert.h>
 #include "bigint/bigint.h"
 /*
-gcc -Wall -Wextra -O2 \
-  -Isrc/bigint -Iinclude \
-  src/bigint/bigint.c \
-  tests/unit/test_bigint.c \
-  -o build/unit/test_bigint
-  */
+- gcc -Wall -Wextra -O2 \
+-   -Isrc/bigint -Iinclude \
+-   src/bigint/bigint.c \
+-   tests/unit/test_bigint.c \
+-   -o build/unit/test_bigint
+*/
 
+/* - BE 변환 round-trip */
 static void test_be_convert(void) {
     BigInt a;
     uint8_t buf[32];
@@ -28,6 +29,7 @@ static void test_be_convert(void) {
     }
 }
 
+/* - 작은 값 나눗셈/나머지 검증 */
 static void test_div_mod_small(void) {
     BigInt a, m, q, r;
 
@@ -40,6 +42,7 @@ static void test_div_mod_small(void) {
     assert(r.nlimbs == 1 && r.limb[0] == 789ull);
 }
 
+/* - 작은 값 modexp 검증 */
 static void test_modexp_small(void) {
     BigInt base, exp, mod, res;
 
@@ -53,6 +56,7 @@ static void test_modexp_small(void) {
     assert(res.nlimbs == 1 && res.limb[0] == 801ull);
 }
 
+/* - 엔트리포인트: 기본 BigInt 테스트 */
 int main(void) {
     test_be_convert();
     test_div_mod_small();

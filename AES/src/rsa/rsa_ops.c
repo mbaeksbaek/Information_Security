@@ -38,10 +38,10 @@ static void rsaks_zero(RSAKS *ks) {
 // =======================
 
 /*
- * ks_init
- * - key_bytes: [ N | EXP ] big-endian
- * - key_len  : even, key_len/2 >= 2
- * - N, EXP 모두 0 이면 실패
+- ks_init
+- key_bytes: [ N | EXP ] big-endian
+- key_len  : even, key_len/2 >= 2
+- N, EXP 모두 0 이면 실패
  */
 static int rsa_ks_init(void *ks_mem, const uint8_t *key_bytes, size_t key_len) {
     if (!ks_mem || !key_bytes || key_len == 0)
@@ -91,24 +91,13 @@ static void rsa_ks_clear(void *ks_mem) {
 // =======================
 
 /*
- * RSA 블록 암/복호 공통
- * - in_bytes  : big-endian block, 길이는 in_len
- * - out_bytes : big-endian block, 길이는 out_len (호출자가 정확한 길이 확보)
- *
- * enc:
- *   m = BigInt(in_bytes)
- *   c = m^exp mod n
- *   c 를 out_len(k_bytes) 길이에 맞춰 big-endian 으로 채움 (왼쪽 0패딩)
- *
- * dec:
- *   c = BigInt(in_bytes)
- *   m = c^exp mod n   (exp 에 d 가 들어있으면 복호)
- *   m 를 out_len(pt_block_bytes) 길이로 big-endian 0패딩
+- RSA 블록 암/복호 공통
+- in_bytes  : big-endian block, 길이는 in_len
+- out_bytes : big-endian block, 길이는 out_len (호출자가 정확한 길이 확보)
+- enc: m^exp mod n → k_bytes 길이로 0패딩 후 big-endian
+- dec: c^exp mod n → pt_block_bytes 길이로 0패딩
  */
-static int rsa_process_block(const RSAKS *ks,
-                             const uint8_t *in_bytes, size_t in_len,
-                             uint8_t *out_bytes, size_t out_len)
-{
+static int rsa_process_block(const RSAKS *ks, const uint8_t *in_bytes, size_t in_len, uint8_t *out_bytes, size_t out_len) {
     if (!ks || !in_bytes || !out_bytes)
         return -1;
 
@@ -153,20 +142,12 @@ static int rsa_process_block(const RSAKS *ks,
 // =======================
 
 /*
- * RSA-ECB + ZeroPadding (encrypt)
- *
- * - plaintext 는 pt_block_bytes 단위로 자른다.
- *   마지막 블록이 모자라면 0x00 으로 채운다.
- * - 각 블록은 m < 256^(pt_block_bytes) 이므로 적절한 n 에 대해 m < n 을 기대.
- * - 각 블록은 RSA 한 번 (m^exp mod n) 수행 후 k_bytes 길이의 ciphertext 로 출력.
- *
- * out_len = num_blocks * k_bytes
- * n == 0이면 out_len = 0, malloc(1) 로 NULL 아님 포인터만 보장
+- RSA-ECB + ZeroPadding (encrypt)
+- pt_block_bytes 단위로 자르고 마지막 블록은 0x00 패딩
+- 각 블록 RSA 수행 후 k_bytes 길이로 출력 (m < n 가정)
+- out_len = num_blocks * k_bytes (n==0이면 on=0, malloc(1))
  */
-static int rsa_encrypt_ecb_zeropad(const void *ks_mem,
-                                   const uint8_t *in, size_t n,
-                                   uint8_t **out, size_t *on)
-{
+static int rsa_encrypt_ecb_zeropad(const void *ks_mem, const uint8_t *in, size_t n, uint8_t **out, size_t *on) {
     if (!ks_mem || !out || !on)
         return -1;
 
@@ -248,19 +229,13 @@ static int rsa_encrypt_ecb_zeropad(const void *ks_mem,
 // =======================
 
 /*
- * RSA-ECB + ZeroPadding (decrypt)
- *
- * - ciphertext 길이 n 은 반드시 k_bytes 의 배수여야 함.
- * - 각 k_bytes 블록을 RSA 한 번 돌려서 pt_block_bytes bytes 로 복원
- *   (RSA 결과를 pt_block_bytes 길이에 맞게 big-endian 0패딩)
- * - 전체 plaintext 끝에서부터 0x00 을 strip : AES zero-padding 과 동일 정책
- *
- * out_len <= num_blocks * pt_block_bytes
+- RSA-ECB + ZeroPadding (decrypt)
+- ciphertext 길이 n은 k_bytes 배수여야 함
+- 각 블록 RSA 복호 → pt_block_bytes 길이 0패딩
+- 전체 plaintext 끝에서 0x00 strip (AES zero-padding 동일 정책)
+- out_len <= num_blocks * pt_block_bytes
  */
-static int rsa_decrypt_ecb_strip(const void *ks_mem,
-                                 const uint8_t *in, size_t n,
-                                 uint8_t **out, size_t *on)
-{
+static int rsa_decrypt_ecb_strip(const void *ks_mem, const uint8_t *in, size_t n, uint8_t **out, size_t *on) {
     if (!ks_mem || !out || !on)
         return -1;
 

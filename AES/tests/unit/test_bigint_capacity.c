@@ -7,16 +7,16 @@
 #include "bigint/bigint.h"
 
 /*
-gcc -Wall -Wextra -O2 \
-  -Iinclude \
-  src/bigint/bigint.c \
-  tests/unit/test_bigint_capacity.c \
-  -o build/unit/test_bigint_capacity
-
+- gcc -Wall -Wextra -O2 \
+-   -Iinclude \
+-   src/bigint/bigint.c \
+-   tests/unit/test_bigint_capacity.c \
+-   -o build/unit/test_bigint_capacity
 */
 // 원하는 테스트 키 길이 (필요에 따라 128, 256 등으로 조정)
 #define KEY_BYTES 256
 
+/* - 고정 패턴 채우기 (선두 0 보정) */
 static void fill_pattern(uint8_t *buf, size_t len) {
     // 간단한 패턴으로 채움 (고정값, 랜덤 X)
     uint8_t v = 0x13;
@@ -30,6 +30,7 @@ static void fill_pattern(uint8_t *buf, size_t len) {
     }
 }
 
+/* - 큰 BigInt 변환 round-trip 검증 */
 static void test_bigint_roundtrip_large(void) {
     uint8_t src[KEY_BYTES];
     uint8_t out[KEY_BYTES];
@@ -56,6 +57,7 @@ static void test_bigint_roundtrip_large(void) {
     assert(bi_cmp(&a, &b) == 0);
 }
 
+/* - 큰 modulus에 대한 modexp 범위 검증 */
 static void test_bigint_modexp_large(void) {
     // mod: KEY_BYTES 바이트짜리 큰 수
     uint8_t mod_bytes[KEY_BYTES];
@@ -85,6 +87,7 @@ static void test_bigint_modexp_large(void) {
     assert(need <= KEY_BYTES);
 }
 
+/* - 엔트리포인트: 용량 테스트 실행 */
 int main(void) {
     test_bigint_roundtrip_large();
     test_bigint_modexp_large();

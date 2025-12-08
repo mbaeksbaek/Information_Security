@@ -1,10 +1,8 @@
 #include "rsa/rsa_core.h"
 #include <string.h> // memset
 
-void rsa_ctx_init(RSAContext* ctx,
-                  const BigInt* n,
-                  const BigInt* exp)
-{
+/* - RSAContext 초기화: n/exp 세팅, 없으면 zero 상태 유지 */
+void rsa_ctx_init(RSAContext* ctx, const BigInt* n, const BigInt* exp) {
     if (!ctx) return;
 
     bi_zero(&ctx->n);
@@ -22,11 +20,8 @@ void rsa_ctx_init(RSAContext* ctx,
     ctx->modulus_bytes = bi_to_be_bytes(&ctx->n, NULL, 0);
 }
 
-/* 내부 헬퍼: 공통 블록 (m^exp mod n) 계산 + out에 modulus_bytes 바이트로 채우기 */
-static int rsa_core_pow(const RSAContext* ctx,
-                        const uint8_t* in, size_t in_len,
-                        uint8_t* out, size_t out_len)
-{
+/* - 공통 pow 헬퍼: m^exp mod n 수행 후 modulus_bytes 길이로 right-pad */
+static int rsa_core_pow(const RSAContext* ctx, const uint8_t* in, size_t in_len, uint8_t* out, size_t out_len) {
     if (!ctx || !out) return -1;
     if (ctx->modulus_bytes == 0) return -1;
     if (out_len < ctx->modulus_bytes) return -1;
@@ -67,18 +62,14 @@ static int rsa_core_pow(const RSAContext* ctx,
     return 0;
 }
 
-int rsa_encrypt_block(const RSAContext* ctx,
-                      const uint8_t* in, size_t in_len,
-                      uint8_t* out, size_t out_len)
-{
-    // encrypt/decrypt 모두 동일 pow 연산이므로 공용 헬퍼 사용
+/* - 한 블록 암호화: pow 헬퍼 그대로 사용 */
+int rsa_encrypt_block(const RSAContext* ctx, const uint8_t* in, size_t in_len, uint8_t* out, size_t out_len) {
+    // encrypt/decrypt 모두 동일 pow 연산
     return rsa_core_pow(ctx, in, in_len, out, out_len);
 }
 
-int rsa_decrypt_block(const RSAContext* ctx,
-                      const uint8_t* in, size_t in_len,
-                      uint8_t* out, size_t out_len)
-{
+/* - 한 블록 복호화: 입력 길이 검증 후 pow 헬퍼 */
+int rsa_decrypt_block(const RSAContext* ctx, const uint8_t* in, size_t in_len, uint8_t* out, size_t out_len) {
     if (!ctx) return -1;
 
     // 암호문 블록은 항상 modulus_bytes 길이라고 가정

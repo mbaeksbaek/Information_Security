@@ -9,25 +9,24 @@
 #include "rsa/rsa_ops.h"
 
 /*
-gcc -Wall -Wextra -O2 \
-  -Iinclude \
-  src/bigint/bigint.c \
-  src/rsa/rsa_ops.c \
-  tests/unit/test_rsa_ops.c \
-  -o build/unit/test_rsa_ops
-
-./build/unit/test_rsa_ops
-
-1. 작은키(3233, 17, 2753)으로 encrypt_ecb_zeropad , decrypt_ecb_strip 기본 roundtrip
-2. encrypt_ecb_zeropad / decrypt_ecb_strip 에서 빈 입력 처리
-3. dec_ecb_strip 에 ciphertext len n % k != 0 인 입력 - 에러, out pointer/len 유지
-4. ks_init에 잘못된 인자/길이/올-제로 키 전달 에러
-5. ZeroPadding + strip : 암복호후 0이 제거되어서 A만 남는지..
+- gcc -Wall -Wextra -O2 \
+-   -Iinclude \
+-   src/bigint/bigint.c \
+-   src/rsa/rsa_ops.c \
+-   tests/unit/test_rsa_ops.c \
+-   -o build/unit/test_rsa_ops
+-
+- ./build/unit/test_rsa_ops
+-
+- 1. 작은키(3233, 17, 2753) 기본 roundtrip
+- 2. 빈 입력 처리
+- 3. ciphertext 길이 불일치 에러
+- 4. ks_init 잘못된 인자/올-제로 키 에러
+- 5. ZeroPadding strip 정책 확인
 */
 
-/* 공통 키: n = 3233 (0x0CA1), e = 17 (0x0011), d = 2753 (0x0AC1) */
-static void make_small_keys(uint8_t *key_enc, uint8_t *key_dec, size_t *key_len)
-{
+/* - 공통 키: n = 3233 (0x0CA1), e = 17 (0x0011), d = 2753 (0x0AC1) */
+static void make_small_keys(uint8_t *key_enc, uint8_t *key_dec, size_t *key_len) {
     uint8_t n_be[2] = { 0x0C, 0xA1 };
     uint8_t e_be[2] = { 0x00, 0x11 };
     uint8_t d_be[2] = { 0x0A, 0xC1 };
@@ -43,9 +42,8 @@ static void make_small_keys(uint8_t *key_enc, uint8_t *key_dec, size_t *key_len)
     }
 }
 
-/* [TC1] CryptoOps 수준에서의 기본 round-trip ("ABC") */
-static void test_rsa_ops_small_basic(void)
-{
+/* - [TC1] CryptoOps 기본 round-trip ("ABC") */
+static void test_rsa_ops_small_basic(void) {
     uint8_t key_enc[4];
     uint8_t key_dec[4];
     size_t  key_len = 0;
@@ -94,9 +92,8 @@ static void test_rsa_ops_small_basic(void)
     free(ks_dec_buf);
 }
 
-/* [TC2] 빈 입력(n=0) 처리: encrypt/decrypt 모두 성공 + out_len == 0 */
-static void test_rsa_ops_empty_io(void)
-{
+/* - [TC2] 빈 입력 처리: enc/dec 모두 out_len == 0 */
+static void test_rsa_ops_empty_io(void) {
     uint8_t key_enc[4];
     uint8_t key_dec[4];
     size_t  key_len = 0;
@@ -140,9 +137,8 @@ static void test_rsa_ops_empty_io(void)
     free(ks_dec_buf);
 }
 
-/* [TC3] decrypt_ecb_strip: ciphertext 길이가 k_bytes 의 배수가 아니면 에러 */
-static void test_rsa_ops_bad_ct_length(void)
-{
+/* - [TC3] decrypt_ecb_strip: ciphertext 길이 불일치 에러 */
+static void test_rsa_ops_bad_ct_length(void) {
     uint8_t key_enc[4];
     uint8_t key_dec[4];
     size_t  key_len = 0;
@@ -188,9 +184,8 @@ static void test_rsa_ops_bad_ct_length(void)
     free(ks_dec_buf);
 }
 
-/* [TC4] ks_init: 잘못된 파라미터 / 키 길이 / 올-제로 키에 대한 에러 처리 */
-static void test_rsa_ops_ks_init_invalid(void)
-{
+/* - [TC4] ks_init: 잘못된 파라미터/키 길이/올-제로 키 에러 처리 */
+static void test_rsa_ops_ks_init_invalid(void) {
     uint8_t dummy_key[4] = { 0x01, 0x02, 0x03, 0x04 };
 
     /* ks_mem == NULL */
@@ -219,11 +214,8 @@ static void test_rsa_ops_ks_init_invalid(void)
     free(ks_buf);
 }
 
-/* [TC5] ZeroPadding + strip 정책:
- * "A, 0x00, 0x00" → encrypt → decrypt 시 결과는 "A" 한 바이트만 남는지 검증
- */
-static void test_rsa_ops_zero_padding_strip(void)
-{
+/* - [TC5] ZeroPadding + strip: "A00" encrypt/decrypt 후 'A'만 남는지 확인 */
+static void test_rsa_ops_zero_padding_strip(void) {
     uint8_t key_enc[4];
     uint8_t key_dec[4];
     size_t  key_len = 0;
@@ -272,8 +264,8 @@ static void test_rsa_ops_zero_padding_strip(void)
     free(ks_dec_buf);
 }
 
-int main(void)
-{
+/* - 엔트리포인트: rsa_ops 확장 테스트 */
+int main(void) {
     test_rsa_ops_small_basic();
     test_rsa_ops_empty_io();
     test_rsa_ops_bad_ct_length();
