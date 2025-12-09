@@ -1,5 +1,5 @@
         -:    0:Source:src/codec_hex.c
-        -:    0:Graph:test_all_cov-codec_hex.gcno
-        -:    0:Data:test_all_cov-codec_hex.gcda
+        -:    0:Graph:test_all_rsa_cov-codec_hex.gcno
+        -:    0:Data:test_all_rsa_cov-codec_hex.gcda
         -:    0:Runs:1
         -:    0:Programs:1

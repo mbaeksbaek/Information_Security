@@ -172,6 +172,29 @@ int main(void) {
         return 6;
     }
 
+    /* ---------- 5) LINE mode: 존재하지 않는 입력 파일 ---------- */
+    RunnerConfig cfg5 = cfg1;
+    cfg5.input_path = "res/input/no_such_file.txt";
+    cfg5.output_path = "res/output/should_not_create.bin";
+    st = runner_exec_line(&cfg5);
+    print_status("LINE-NOFILE", st);
+    if (st.code == FH_OK) {
+        printf("FAIL: expected OPEN/READ error on missing input\n");
+        return 7;
+    }
+
+    /* ---------- 6) WHOLE + HEX (decrypt) - invalid hex char ---------- */
+    write_text("res/input/whole_hex_badchar.txt", "GG");
+    RunnerConfig cfg6 = cfg3;
+    cfg6.input_path = "res/input/whole_hex_badchar.txt";
+    cfg6.output_path = "res/output/whole_dec_badchar.bin";
+    st = runner_exec_whole(&cfg6);
+    print_status("WHOLE-HEX-DEC-BADCHAR", st);
+    if (st.code == FH_OK) {
+        printf("FAIL: expected FORMAT error on non-hex input\n");
+        return 8;
+    }
+
     puts("ALL SMOKE TESTS PASSED (with DUMMY_OPS).");
     return 0;
 }

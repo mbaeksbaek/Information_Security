@@ -2,6 +2,22 @@
 // RSA-ECB + ZeroPadding CryptoOps Adapter
 // - BigInt 기반 textbook RSA 를 CryptoOps 인터페이스에 맞게 감싼 모듈
 // - Runner 는 AES 와 동일하게 CryptoOps 만 교체해서 사용 가능
+/*
+[Build/Run: RSA OPS unit]
+gcc -Wall -Wextra -O2 -Iinclude \
+  src/bigint/bigint.c src/rsa/rsa_core.c src/rsa/rsa_ops.c \
+  tests/unit/test_rsa_ops.c \
+  -o build/unit/test_rsa_ops
+./build/unit/test_rsa_ops
+
+[Build/Run: RSA integrated test]
+gcc -Wall -Wextra -O2 -Iinclude -Itests \
+  src/bigint/bigint.c src/codec_hex.c src/file_io.c src/runner.c src/crypto_ops.c \
+  src/rsa/rsa_core.c src/rsa/rsa_ops.c src/rsa/rsa_app.c \
+  tests/kat/rsa_kat_vectors.c tests/test_all_rsa.c \
+  -o build/test_all_rsa
+./build/test_all_rsa
+*/
 
 #include "rsa/rsa_ops.h"
 #include "bigint/bigint.h"     // BigInt, bi_* APIs

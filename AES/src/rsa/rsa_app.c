@@ -1,5 +1,13 @@
 // src/rsa/rsa_app.c
 // RSA-ECB + ZeroPadding CLI (Runner + CryptoOps 기반)
+/*
+[Build/Run: RSA CLI]
+gcc -Wall -Wextra -O2 -Iinclude \
+  src/main_rsa.c src/rsa/rsa_app.c src/rsa/rsa_ops.c src/rsa/rsa_core.c \
+  src/bigint/bigint.c src/runner.c src/file_io.c src/codec_hex.c src/crypto_ops.c \
+  -o build/app_rsa
+./build/app_rsa enc line input.txt output.bin 0CA10011 raw
+*/
 
 #include "rsa/rsa_app.h"
 

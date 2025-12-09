@@ -42,6 +42,23 @@ static void make_small_keys(uint8_t *key_enc, uint8_t *key_dec, size_t *key_len)
     }
 }
 
+/* - 매우 작은 modulus 로 에러 경로를 강제로 밟는 키 (n=1, e=d=3) */
+static void make_tiny_keys(uint8_t *key_enc, uint8_t *key_dec, size_t *key_len) {
+    uint8_t n_be[2] = { 0x00, 0x01 };
+    uint8_t e_be[2] = { 0x00, 0x03 };
+    uint8_t d_be[2] = { 0x00, 0x03 };
+
+    memcpy(key_enc,     n_be, 2);
+    memcpy(key_enc + 2, e_be, 2);
+
+    memcpy(key_dec,     n_be, 2);
+    memcpy(key_dec + 2, d_be, 2);
+
+    if (key_len) {
+        *key_len = 4;
+    }
+}
+
 /* - [TC1] CryptoOps 기본 round-trip ("ABC") */
 static void test_rsa_ops_small_basic(void) {
     uint8_t key_enc[4];
@@ -264,6 +281,68 @@ static void test_rsa_ops_zero_padding_strip(void) {
     free(ks_dec_buf);
 }
 
+/* - [TC6] modulus 보다 크거나 같은 평문을 주면 rsa_process_block 에서 실패해야 함 */
+static void test_rsa_ops_plain_ge_modulus(void) {
+    uint8_t key_enc[4];
+    uint8_t key_dec[4];
+    size_t  key_len = 0;
+    make_tiny_keys(key_enc, key_dec, &key_len);
+
+    uint8_t *ks_enc_buf = (uint8_t *)malloc(RSA_OPS.ks_size);
+    uint8_t *ks_dec_buf = (uint8_t *)malloc(RSA_OPS.ks_size);
+    assert(ks_enc_buf && ks_dec_buf);
+
+    int ret;
+    ret = RSA_OPS.ks_init(ks_enc_buf, key_enc, key_len);
+    assert(ret == 0);
+    ret = RSA_OPS.ks_init(ks_dec_buf, key_dec, key_len);
+    assert(ret == 0);
+
+    /* n=1 인 키에 0xFF 평문 → m >= n 조건으로 실패 기대 */
+    uint8_t bad_pt[1] = { 0xFF };
+    uint8_t *ct = NULL;
+    size_t ct_len = 999;
+    ret = RSA_OPS.encrypt_ecb_zeropad(ks_enc_buf, bad_pt, sizeof(bad_pt), &ct, &ct_len);
+    assert(ret != 0);
+    assert(ct == NULL);
+
+    RSA_OPS.ks_clear(ks_enc_buf);
+    RSA_OPS.ks_clear(ks_dec_buf);
+    free(ks_enc_buf);
+    free(ks_dec_buf);
+}
+
+/* - [TC7] modulus 보다 크거나 같은 ciphertext 를 주면 decrypt 에서 실패해야 함 */
+static void test_rsa_ops_ct_ge_modulus(void) {
+    uint8_t key_enc[4];
+    uint8_t key_dec[4];
+    size_t  key_len = 0;
+    make_tiny_keys(key_enc, key_dec, &key_len);
+
+    uint8_t *ks_enc_buf = (uint8_t *)malloc(RSA_OPS.ks_size);
+    uint8_t *ks_dec_buf = (uint8_t *)malloc(RSA_OPS.ks_size);
+    assert(ks_enc_buf && ks_dec_buf);
+
+    int ret;
+    ret = RSA_OPS.ks_init(ks_enc_buf, key_enc, key_len);
+    assert(ret == 0);
+    ret = RSA_OPS.ks_init(ks_dec_buf, key_dec, key_len);
+    assert(ret == 0);
+
+    /* n=1 인 키에 modulus 이상(0x0002) CT 를 주면 실패 */
+    uint8_t bad_ct[2] = { 0x00, 0x02 };
+    uint8_t *pt = NULL;
+    size_t pt_len = 777;
+    ret = RSA_OPS.decrypt_ecb_strip(ks_dec_buf, bad_ct, sizeof(bad_ct), &pt, &pt_len);
+    assert(ret != 0);
+    assert(pt == NULL);
+
+    RSA_OPS.ks_clear(ks_enc_buf);
+    RSA_OPS.ks_clear(ks_dec_buf);
+    free(ks_enc_buf);
+    free(ks_dec_buf);
+}
+
 /* - 엔트리포인트: rsa_ops 확장 테스트 */
 int main(void) {
     test_rsa_ops_small_basic();
@@ -271,6 +350,8 @@ int main(void) {
     test_rsa_ops_bad_ct_length();
     test_rsa_ops_ks_init_invalid();
     test_rsa_ops_zero_padding_strip();
+    test_rsa_ops_plain_ge_modulus();
+    test_rsa_ops_ct_ge_modulus();
 
     printf("RSA OPS extended tests: OK\n");
     return 0;

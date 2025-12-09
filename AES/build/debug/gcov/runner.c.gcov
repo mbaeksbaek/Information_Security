@@ -1,5 +1,5 @@
         -:    0:Source:src/runner.c
-        -:    0:Graph:test_all_cov-runner.gcno
-        -:    0:Data:test_all_cov-runner.gcda
+        -:    0:Graph:test_all_rsa_cov-runner.gcno
+        -:    0:Data:test_all_rsa_cov-runner.gcda
         -:    0:Runs:1
         -:    0:Programs:1

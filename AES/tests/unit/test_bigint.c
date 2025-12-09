@@ -56,11 +56,36 @@ static void test_modexp_small(void) {
     assert(res.nlimbs == 1 && res.limb[0] == 801ull);
 }
 
+/* - mod 가 0 인 경우 결과는 0 이어야 함 (에러 대신 0 반환 경로 커버) */
+static void test_modexp_mod_zero(void) {
+    BigInt base, exp, mod, res;
+    bi_from_u64(&base, 1234);
+    bi_from_u64(&exp, 17);
+    bi_zero(&mod);
+
+    bi_modexp(&res, &base, &exp, &mod);
+    assert(bi_is_zero(&res));
+}
+
+/* - bi_to_be_bytes: 버퍼가 부족한 경우 0을 반환하고 아무것도 쓰지 않는다 */
+static void test_to_be_bytes_buffer_too_small(void) {
+    BigInt a;
+    bi_from_u64(&a, 0x123456u);
+
+    uint8_t buf[2];
+    buf[0] = 0xAA; buf[1] = 0xBB;
+    size_t written = bi_to_be_bytes(&a, buf, sizeof(buf));
+    assert(written == 0);
+    assert(buf[0] == 0xAA && buf[1] == 0xBB);
+}
+
 /* - 엔트리포인트: 기본 BigInt 테스트 */
 int main(void) {
     test_be_convert();
     test_div_mod_small();
     test_modexp_small();
+    test_modexp_mod_zero();
+    test_to_be_bytes_buffer_too_small();
 
     printf("BigInt basic tests: OK\n");
     return 0;
